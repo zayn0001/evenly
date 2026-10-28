@@ -60,7 +60,8 @@ export default function SignIn() {
         }
         if (error) throw error;
       } else if (mode === 'sign-up') {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        // Tags the account as Evenly's, so the shared Supabase email templates use Evenly's design.
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { app: 'evenly' } } });
         if (error) throw error;
         // With "Confirm email" on there's no session until the emailed code is entered.
         if (!data.session) go('verify', `We sent a 6-digit code to ${email}.`);

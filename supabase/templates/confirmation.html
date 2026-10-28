@@ -1,3 +1,6 @@
+{{/* One template for every app on this Supabase project. Each app tags its users at sign-up
+     (options.data.app); Evenly's users get the receipt design, anyone else the plain version. */}}
+{{ if and .Data .Data.app (eq .Data.app "evenly") }}
 <div style="background:#36454d;padding:24px 12px;font-family:'Courier New',Courier,monospace;color:#2a2a2e">
   <div style="max-width:420px;margin:0 auto;background:#fbfbf6;padding:20px 22px;border-radius:2px">
     <p style="margin:0 0 4px;font-size:11px;letter-spacing:2px;color:#77777e;font-weight:bold">EVENLY &middot; SIGN UP</p>
@@ -7,3 +10,10 @@
     <p style="margin:0;font-size:13px;color:#77777e">Type it on the sign-up page. It works for an hour. If you didn't sign up, ignore this email.</p>
   </div>
 </div>
+{{ else }}
+<div style="font-family:Arial,Helvetica,sans-serif;color:#222;max-width:420px">
+  <p>Your sign-up code:</p>
+  <p style="font-size:28px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+  <p style="color:#666;font-size:13px">Type it where you signed up. It works for an hour. If you didn't sign up, ignore this email.</p>
+</div>
+{{ end }}

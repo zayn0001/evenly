@@ -15,9 +15,9 @@ if (!token || !ref) {
 const settings = {
   mailer_otp_length: 6,
   mailer_otp_exp: 3600,
-  mailer_subjects_confirmation: 'Your Evenly sign-up code',
+  mailer_subjects_confirmation: 'Your sign-up code', // subjects are project-wide, so app-neutral
   mailer_templates_confirmation_content: readFileSync(root('supabase/templates/confirmation.html'), 'utf8'),
-  mailer_subjects_recovery: 'Your Evenly password reset code',
+  mailer_subjects_recovery: 'Your password reset code',
   mailer_templates_recovery_content: readFileSync(root('supabase/templates/recovery.html'), 'utf8'),
 };
 const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/config/auth`, {

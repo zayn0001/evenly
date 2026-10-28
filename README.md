@@ -60,6 +60,10 @@ npm run lint
    Limits > emails per hour (Gmail allows about 500 a day).
 4. **Code emails on hosted:** `npm run email:templates` sends `supabase/templates/*.html` (the
    6-digit code emails) to the hosted project. Run it again after editing them.
+   The templates are project-wide. Each app sharing the project tags its users at sign-up
+   (`signUp({ ..., options: { data: { app: 'evenly' } } })`); the templates show Evenly's design for
+   `app = evenly` and a plain one otherwise. Add an `{{ else if eq .Data.app "other" }}` branch per
+   app. Subjects and the sender name can't vary per app.
 5. **Local (optional):** put `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` in `.env` and uncomment the
    `[auth.email.smtp]` block in `supabase/config.toml`, then `npm run db:stop; npm run db:start`.
 
