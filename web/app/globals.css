@@ -35,7 +35,7 @@ a { color: var(--blue); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---------------------------------------------------------------- the machine and its paper */
-.page { width: 100%; max-width: var(--sheet); margin: 0 auto; padding: 10px 10px 24px; }
+.page { width: 100%; max-width: var(--sheet); margin: 0 auto; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 24px max(10px, env(safe-area-inset-left)); }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 6px 10px; color: var(--paper); }
 .topbar a, .topbar button { color: var(--paper); background: none; border: 0; padding: 10px 4px; min-height: 44px; cursor: pointer; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .brand { font-family: var(--font-title), monospace; font-size: 20px; text-decoration: none !important; white-space: nowrap; }
@@ -150,7 +150,7 @@ textarea.input { min-height: 88px; resize: vertical; border: 1px dashed var(--in
   background: var(--slot); color: var(--paper); padding: 10px 16px; border-radius: 4px; font-weight: 700; font-size: 14px; }
 
 @media (min-width: 640px) {
-  .page { padding-top: 24px; }
+  .page { padding-top: max(24px, env(safe-area-inset-top)); }
   .paper { padding-left: 22px; padding-right: 22px; }
   .actions { position: static; margin: 14px 0 0; border-radius: 4px; flex-direction: row; flex-wrap: wrap; }
   .actions > *, .actions .btn { width: auto; flex: 1; }

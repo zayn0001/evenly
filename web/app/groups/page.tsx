@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { displayName, SignedIn, useAuth } from '@/components/auth';
 import { NamesInput } from '@/components/names-input';
+import { InstallHint } from '@/components/pwa';
 import { Notice, Paper, Rule } from '@/components/paper';
 import { createGroup, listGroups, type GroupSummary } from '@/lib/db';
 
@@ -30,6 +31,7 @@ function Groups() {
 
   return (
     <Paper docket="GROUPS" title="Your groups">
+      <InstallHint />
       <Notice lines={error ? [error] : []} tone="error" />
       {groups === null && !error && <p className="muted">Loading…</p>}
       {groups?.length === 0 && !creating && (

@@ -11,7 +11,10 @@ only on drinks, service charge on everything. Copy each amount into Google Pay y
   sent by email (no links). Every group is private to the account that made it.
 - **Only the last 10 splits** per account are kept (most recently saved, across all groups). A
   database trigger deletes the oldest when an 11th is saved; change `offset 10` in the migration.
-- Works on phones (camera upload, voice, sticky buttons) and desktops.
+- Works on phones (camera upload, voice, sticky buttons) and desktops, and installs as an app
+  (PWA): Android/desktop get an Install button on the Groups page, iPhone users Share > Add to
+  Home Screen. The service worker (`web/public/sw.js`) caches only the build's static files and
+  shows an offline page; data always comes live from Supabase. Bump `CACHE` in it to force a refresh.
 
 ## Stack
 

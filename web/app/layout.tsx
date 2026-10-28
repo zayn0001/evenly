@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Courier_Prime, Special_Elite } from 'next/font/google';
 
 import { AuthProvider } from '@/components/auth';
+import { ServiceWorker } from '@/components/pwa';
 
 import './globals.css';
 
@@ -10,7 +11,10 @@ const title = Special_Elite({ weight: '400', subsets: ['latin'], variable: '--fo
 
 export const metadata: Metadata = {
   title: 'Evenly',
-  description: 'Snap the bill, say who had what, and see what everyone owes.',
+  description: 'Snap the bill, say who had what, and see what everyone’s share is.',
+  applicationName: 'Evenly',
+  // Installed to an iPhone home screen: full screen, slate under the status bar (see .page padding).
+  appleWebApp: { capable: true, title: 'Evenly', statusBarStyle: 'black-translucent' },
 };
 
 export const viewport: Viewport = {
@@ -25,6 +29,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en-IN" className={`${body.variable} ${title.variable}`}>
       <body>
         <AuthProvider>{children}</AuthProvider>
+        <ServiceWorker />
       </body>
     </html>
   );
