@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BillEditor, emptyReceipt } from '@/components/bill-editor';
 import { Line, Notice, Paper, Rule, useToast } from '@/components/paper';
 import { Recorder } from '@/components/recorder';
-import { assign, scanBill } from '@/lib/api';
+import { assign, scanBill, shrinkImage, toDataUrl } from '@/lib/api';
 import { getGroup, getSplit, saveSplit, type Member } from '@/lib/db';
 import { fmtUnits, plainAmount, rupees } from '@/lib/format';
 import { reconcile } from '@/lib/reconcile';
@@ -15,7 +15,8 @@ import { SplitError, splitBill } from '@/lib/split';
 import type { Assignments, Person, Receipt, SplitResult } from '@/lib/types';
 
 type Step = 'bill' | 'who' | 'result';
-type Draft = { step: Step; receipt: Receipt | null; assignments: Assignments; title: string };
+/** `photo` is the shrunk bill photo (data: URL), kept only in this tab so it can be shown while assigning. */
+type Draft = { step: Step; receipt: Receipt | null; assignments: Assignments; title: string; photo?: string | null };
 const STEPS: { step: Step; label: string }[] = [
   { step: 'bill', label: '1 Bill' },
   { step: 'who', label: '2 Who had what' },
@@ -88,6 +89,8 @@ export function SplitEditor({ groupId, splitId }: { groupId: string; splitId?: s
       {draft.step === 'bill' && (
         <BillStep
           receipt={draft.receipt}
+          photo={draft.photo ?? null}
+          onPhoto={(photo) => setDraft({ photo })}
           onReceipt={(receipt) => setDraft({ receipt })}
           onNext={(receipt) => setDraft({ receipt, step: 'who', title: draft.title || receipt.restaurant || '' })}
           onCancel={leave}
@@ -96,6 +99,7 @@ export function SplitEditor({ groupId, splitId }: { groupId: string; splitId?: s
       {draft.step === 'who' && draft.receipt && (
         <WhoStep
           receipt={draft.receipt}
+          photo={draft.photo ?? null}
           people={people}
           meId={meId}
           assignments={assignments}
@@ -126,27 +130,31 @@ export function SplitEditor({ groupId, splitId }: { groupId: string; splitId?: s
 // ---------------------------------------------------------------- 1. the bill
 function BillStep({
   receipt,
+  photo,
+  onPhoto,
   onReceipt,
   onNext,
   onCancel,
 }: {
   receipt: Receipt | null;
+  photo: string | null;
+  onPhoto: (p: string | null) => void;
   onReceipt: (r: Receipt | null) => void;
   onNext: (r: Receipt) => void;
   onCancel: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
   const [scanIssues, setScanIssues] = useState<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const scan = async (file: File) => {
     setError(null);
-    setPhoto(URL.createObjectURL(file));
     setBusy(true);
     try {
-      const res = await scanBill(file);
+      const small = await shrinkImage(file);
+      onPhoto(await toDataUrl(small).catch(() => null));
+      const res = await scanBill(small);
       setScanIssues(res.issues);
       onReceipt(res.receipt);
     } catch (e) {
@@ -207,7 +215,14 @@ function BillStep({
             <Notice lines={issues.map((i) => `Check this: ${i}`)} />
             <BillEditor receipt={receipt} onChange={onReceipt} />
             <Rule />
-            <button className="link" type="button" onClick={() => onReceipt(null)}>
+            <button
+              className="link"
+              type="button"
+              onClick={() => {
+                onReceipt(null);
+                onPhoto(null);
+              }}
+            >
               Start over with another photo
             </button>
           </>
@@ -230,6 +245,7 @@ function BillStep({
 // ---------------------------------------------------------------- 2. who had what
 function WhoStep({
   receipt,
+  photo,
   people,
   meId,
   assignments,
@@ -238,6 +254,7 @@ function WhoStep({
   onNext,
 }: {
   receipt: Receipt;
+  photo: string | null;
   people: Person[];
   meId: string | null;
   assignments: Assignments;
@@ -290,6 +307,7 @@ function WhoStep({
     <>
       <Paper docket="WHO HAD WHAT" title={receipt.restaurant || 'Who had what'}>
         <p className="muted">Tap the people on each item, or just say it.</p>
+        <BillPeek receipt={receipt} photo={photo} />
         <Recorder busy={busy} onClip={(audio) => run({ audio })} />
         {typing ? (
           <div className="stack" style={{ gap: 6 }}>
@@ -383,6 +401,43 @@ function WhoStep({
         </button>
       </div>
     </>
+  );
+}
+
+/** The bill in view while you say who had what: the photo you uploaded, or the lines you typed. */
+function BillPeek({ receipt, photo }: { receipt: Receipt; photo: string | null }) {
+  const [zoomed, setZoomed] = useState(false);
+  if (photo) {
+    return (
+      <details open className="card">
+        <summary style={{ cursor: 'pointer', fontWeight: 700, minHeight: 32 }}>Your bill</summary>
+        <button
+          type="button"
+          onClick={() => setZoomed((z) => !z)}
+          aria-label={zoomed ? 'Show the bill smaller' : 'Show the bill bigger'}
+          style={{ display: 'block', width: '100%', padding: 0, border: 0, background: 'none', cursor: zoomed ? 'zoom-out' : 'zoom-in', marginTop: 6 }}
+        >
+          {/* A local data: URL, so next/image has nothing to optimise. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photo} alt="The bill you uploaded" className="thumb" style={zoomed ? { maxHeight: 'none' } : { maxHeight: 260 }} />
+        </button>
+        <p className="muted">{zoomed ? 'Tap to shrink' : 'Tap to zoom'}</p>
+      </details>
+    );
+  }
+  return (
+    <details className="card">
+      <summary style={{ cursor: 'pointer', fontWeight: 700, minHeight: 32 }}>Your bill ({receipt.items.length} items)</summary>
+      <div className="stack" style={{ gap: 2, paddingTop: 6 }}>
+        {receipt.items.map((i) => (
+          <Line key={i.id} label={i.qty > 1 ? `${fmtUnits(i.qty)} × ${i.name}` : i.name} value={rupees(i.total)} />
+        ))}
+        {[...receipt.charges, ...receipt.taxes].map((a, n) => (
+          <Line key={n} label={<span className="muted">{a.name}</span>} value={<span className="muted">{rupees(a.amount)}</span>} />
+        ))}
+        <Line label="Total" value={rupees(receipt.grand_total)} bold />
+      </div>
+    </details>
   );
 }
 

@@ -15,6 +15,15 @@ async function post<T>(path: string, form: FormData): Promise<T> {
   return body as T;
 }
 
+/** A data: URL, so the picture survives the tab reloading (blob: URLs don't). */
+export const toDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
 const MAX_SIDE = 2000; // px: plenty for printed bills, and keeps uploads small on mobile data
 
 /** Phone photos are 4000+ px and several MB; shrink to a JPEG before uploading. */
@@ -31,9 +40,10 @@ export async function shrinkImage(file: File): Promise<Blob> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? file), 'image/jpeg', 0.8));
 }
 
-export async function scanBill(file: File): Promise<ScanResponse> {
+/** `image` should already be shrunk (shrinkImage). */
+export async function scanBill(image: Blob): Promise<ScanResponse> {
   const form = new FormData();
-  form.append('image', await shrinkImage(file), 'bill.jpg');
+  form.append('image', image, 'bill.jpg');
   return post('/api/scan', form);
 }
 
