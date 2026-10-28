@@ -184,10 +184,11 @@ You get the bill items (with ids and quantities) and the people at the meal (wit
 Names in the transcript may be misspelled by speech recognition (Indian names especially): match to the closest person.
 
 Return ONLY JSON:
-{"assignments": {"<item_id>": [{"person_id": "<id>", "units": number}]}, "flags": [str]}
+{"assignments": {"<item_id>": [{"person_id": "<id>", "units": number}]}, "ratio": ["<item_id>"], "flags": [str]}
 
 Rules:
 - units = how many of that item the person had. "2 naans each" -> units 2 per person. "split a roti" between two people -> 0.5 each.
+- When the speaker gives an item's split as proportions rather than amounts ("2 to 1", "60/40", "70 percent", "twice as much as", "a third each", "split it 3:2"), give the proportions as units (60/40 -> 60 and 40; "twice as much as Ben" -> 2 for them, 1 for Ben) and list that item id in "ratio". Items given as amounts or shared equally are not listed.
 - If people shared an item without a count, give each units 1 (equal weights).
 - Only use item ids and person ids from the input. Never invent ids.
 - Add a flag for: uncertain name matches (e.g. "heard 'Shruti', matched to Sruthi"), items nobody mentioned, quantities that don't add up to the item qty, anything ambiguous.
@@ -232,5 +233,7 @@ export function sanitizeAssignments(data: Record<string, unknown>, receipt: Rece
       flags.push(`Nobody was assigned the ${item.name}`);
     }
   }
-  return { assignments, flags };
+  // Items the speaker split by proportion ("60/40"): the app switches them to ratio mode.
+  const ratio = (Array.isArray(data.ratio) ? data.ratio : []).map((id) => str(id, 64)).filter((id) => assignments[id]);
+  return { assignments, flags, ratio: [...new Set(ratio)] };
 }

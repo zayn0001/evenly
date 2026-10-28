@@ -80,3 +80,14 @@ test('assignments referring to made-up items or people are dropped and flagged',
   assert.ok(flags.some((f) => f.includes('i99')));
   assert.ok(flags.some((f) => f.includes('Nobody was assigned the Shake')));
 });
+
+test('items the speaker split by proportion come back as ratio items (known ids only)', () => {
+  const people = [{ id: 'me', name: 'Me' }, { id: 's', name: 'Sruthi' }];
+  const { assignments, ratio } = sanitizeAssignments(
+    { assignments: { i1: [{ person_id: 'me', units: 60 }, { person_id: 's', units: 40 }], i2: [{ person_id: 's', units: 1 }] }, ratio: ['i1', 'i99', 'i1'] },
+    GOOD,
+    people,
+  );
+  assert.deepEqual(assignments.i1, { me: 60, s: 40 });
+  assert.deepEqual(ratio, ['i1']);
+});

@@ -34,8 +34,8 @@ export async function POST(request: Request) {
     }
     if (!transcript) return fail(400, 'Say or type who had what first.');
     if (transcript.length > MAX_TRANSCRIPT) return fail(413, 'That is a bit long. Keep it under 2000 characters.');
-    const { assignments, flags } = await assignFromTranscript(transcript, ctx.receipt, ctx.people, ctx.meId);
-    return Response.json({ transcript, assignments, flags });
+    const { assignments, flags, ratio } = await assignFromTranscript(transcript, ctx.receipt, ctx.people, ctx.meId);
+    return Response.json({ transcript, assignments, flags, ratio });
   } catch (e) {
     return fail(502, `Couldn't work it out: ${e instanceof Error ? e.message : String(e)}`);
   }

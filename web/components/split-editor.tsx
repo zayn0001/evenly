@@ -297,8 +297,17 @@ function WhoStep({
     setError(null);
     try {
       const res = await assign(input, receipt, people, meId);
-      // What it understood fills in; anything it didn't mention keeps your taps.
-      onChange({ ...assignments, ...res.assignments });
+      // What it understood fills in; anything it didn't mention keeps your taps. Items given as
+      // proportions ("60/40") switch to ratio mode; other mentioned items go back to counts/equal.
+      const said = new Set(Object.keys(res.assignments));
+      const ratio = new Set(res.ratio ?? []);
+      const items = receipt.items.map((i) => {
+        if (!said.has(i.id)) return i;
+        const next: Receipt['items'][number] = { ...i, split: 'ratio' };
+        if (!ratio.has(i.id)) delete next.split;
+        return next;
+      });
+      onItemSplit({ ...receipt, items }, { ...assignments, ...res.assignments });
       setHeard({ transcript: res.transcript, flags: res.flags });
       setTyping(false);
     } catch (e) {

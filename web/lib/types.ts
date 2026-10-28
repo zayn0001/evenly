@@ -52,4 +52,5 @@ export type SplitResult = { people: PersonTotal[]; bill_total: number; warnings:
 
 /** `checksOut: false` = no read added up in `reads` tries; the person must fix the lines. */
 export type ScanResponse = { receipt: Receipt; issues: string[]; model: string | null; reads: number; checksOut: boolean };
-export type AssignResponse = { transcript: string; assignments: Assignments; flags: string[] };
+/** `ratio`: item ids the speaker split by proportion ("60/40"), to switch to ratio mode. */
+export type AssignResponse = { transcript: string; assignments: Assignments; flags: string[]; ratio: string[] };
