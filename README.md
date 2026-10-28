@@ -4,6 +4,8 @@ A website for splitting restaurant bills. Photograph the bill, say (or tap) who 
 exactly what each person's share is, with taxes and charges shared fairly: GST only on food, VAT
 only on drinks, service charge on everything. Copy each amount into Google Pay yourself.
 
+**Live:** https://evenly-d0nl.onrender.com
+
 - **Groups**: make a group with people's names, then save splits in it. Edit or delete them any time.
 - **Accounts**: email and password. Every group is private to the account that made it.
 - **Only the last 10 splits** per account are kept (most recently saved, across all groups). A
@@ -69,7 +71,7 @@ npm run lint
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the hosted ones),
    `GEMINI_API_KEY`, `GROQ_API_KEY`. Optional: `AI_SCANS_PER_DAY`, `AI_ASSIGNS_PER_DAY`.
 3. **Back in Supabase**, Authentication > URL Configuration: Site URL = the Render address
-   (e.g. `https://evenly.onrender.com`), and add `https://evenly.onrender.com/**` and
+   (`https://evenly-d0nl.onrender.com`), and add `https://evenly-d0nl.onrender.com/**` and
    `http://localhost:3000/**` to the redirect URLs, so email links land on the site.
 
 Render's free plan sleeps after 15 minutes without visitors; the first visit after that takes
