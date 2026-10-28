@@ -25,3 +25,25 @@ export function shareEqually(item: Pick<Item, 'qty' | 'split'>, personIds: strin
   const each = counted(item) ? item.qty / personIds.length : 1;
   return Object.fromEntries(personIds.map((id) => [id, each]));
 }
+
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+
+/**
+ * The same proportions in the smallest whole numbers: [1.333, 2.667] -> [1, 2], [60, 40] -> [3, 2].
+ * Null when no whole-number ratio with parts up to 100 fits (e.g. [1, 1.41]).
+ */
+export function simplestRatio(values: number[]): number[] | null {
+  if (values.length === 0 || values.some((v) => !(v > 0))) return null;
+  const min = Math.min(...values);
+  for (let d = 1; d <= 12; d++) {
+    const scaled = values.map((v) => (v / min) * d);
+    // Models round thirds to 1.33 and 2.67, so allow a little slack (2.67 / 1.33 = 2.008).
+    if (scaled.every((x) => Math.abs(x - Math.round(x)) < 0.02)) {
+      const whole = scaled.map(Math.round);
+      const g = whole.reduce(gcd);
+      const ratio = whole.map((n) => n / g);
+      return Math.max(...ratio) <= 100 ? ratio : null;
+    }
+  }
+  return null;
+}

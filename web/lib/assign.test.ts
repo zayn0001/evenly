@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { itemStatus, shareEqually } from './assign.ts';
+import { itemStatus, shareEqually, simplestRatio } from './assign.ts';
 
 const apples = { qty: 3 };
 
@@ -29,4 +29,14 @@ test('switched to a ratio, a counted item takes any proportions', () => {
   assert.deepEqual(itemStatus(byRatio, { ana: 2, ben: 1 }), { kind: 'done' });
   assert.deepEqual(itemStatus(byRatio, { ana: 1 }), { kind: 'done' });
   assert.deepEqual(shareEqually(byRatio, ['ana', 'ben']), { ana: 1, ben: 1 });
+});
+
+test('ratios are shown in the smallest whole numbers', () => {
+  assert.deepEqual(simplestRatio([1.3333333333, 2.6666666667]), [1, 2]);
+  assert.deepEqual(simplestRatio([1.33, 2.67]), [1, 2]);
+  assert.deepEqual(simplestRatio([60, 40]), [3, 2]);
+  assert.deepEqual(simplestRatio([0.5, 0.5, 1]), [1, 1, 2]);
+  assert.deepEqual(simplestRatio([70, 30]), [7, 3]);
+  assert.equal(simplestRatio([1, 1.41]), null);
+  assert.equal(simplestRatio([]), null);
 });

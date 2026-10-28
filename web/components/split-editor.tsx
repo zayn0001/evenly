@@ -8,7 +8,7 @@ import { BillEditor, emptyReceipt } from '@/components/bill-editor';
 import { Line, Notice, Paper, Rule, useToast } from '@/components/paper';
 import { Recorder } from '@/components/recorder';
 import { assign, scanBill, shrinkImage, toDataUrl } from '@/lib/api';
-import { counted, itemStatus, shareEqually, type ItemStatus } from '@/lib/assign';
+import { counted, itemStatus, shareEqually, simplestRatio, type ItemStatus } from '@/lib/assign';
 import { getGroup, getSplit, saveSplit, type Member } from '@/lib/db';
 import { fmtUnits, plainAmount, rupees } from '@/lib/format';
 import { reconcile, withImpliedRoundOff } from '@/lib/reconcile';
@@ -307,7 +307,14 @@ function WhoStep({
         if (!ratio.has(i.id)) delete next.split;
         return next;
       });
-      onItemSplit({ ...receipt, items }, { ...assignments, ...res.assignments });
+      // Proportions come back as the model worked them out (1.33 : 2.67); store them as 1 : 2.
+      const heard = Object.fromEntries(
+        Object.entries(res.assignments).map(([id, shares]) => {
+          const whole = ratio.has(id) ? simplestRatio(Object.values(shares)) : null;
+          return [id, whole ? Object.fromEntries(Object.keys(shares).map((pid, n) => [pid, whole[n]])) : shares];
+        }),
+      );
+      onItemSplit({ ...receipt, items }, { ...assignments, ...heard });
       setHeard({ transcript: res.transcript, flags: res.flags });
       setTyping(false);
     } catch (e) {
@@ -474,7 +481,7 @@ function SharesEditor({
       </div>
       <p className="muted">
         {ratio
-          ? `Shared in proportion ${people.map((p) => fmtUnits(shares[p.id])).join(' : ')}.`
+          ? `Shared in proportion ${(simplestRatio(people.map((p) => shares[p.id])) ?? people.map((p) => shares[p.id])).map(fmtUnits).join(' : ')}.`
           : byCount
             ? `How many each? They need to add up to ${fmtUnits(item.qty)}.`
             : 'Shared equally. Switch to ratio for an uneven split.'}
