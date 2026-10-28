@@ -249,6 +249,16 @@ otp_expiry = 3600
 # sender_name = "Evenly"
 
 # Uncomment to customize email template
+# Codes instead of links: the emails carry a 6-digit code ({{ .Token }}) typed into the site.
+# `npm run email:templates` sends the same templates to the hosted project.
+[auth.email.template.confirmation]
+subject = "Your Evenly sign-up code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Your Evenly password reset code"
+content_path = "./supabase/templates/recovery.html"
+
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"

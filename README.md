@@ -7,7 +7,8 @@ only on drinks, service charge on everything. Copy each amount into Google Pay y
 **Live:** https://evenly-d0nl.onrender.com
 
 - **Groups**: make a group with people's names, then save splits in it. Edit or delete them any time.
-- **Accounts**: email and password. Every group is private to the account that made it.
+- **Accounts**: email and password. Sign-up and password resets are confirmed with a 6-digit code
+  sent by email (no links). Every group is private to the account that made it.
 - **Only the last 10 splits** per account are kept (most recently saved, across all groups). A
   database trigger deletes the oldest when an 11th is saved; change `offset 10` in the migration.
 - Works on phones (camera upload, voice, sticky buttons) and desktops.
@@ -36,8 +37,8 @@ npm run db:start            # local Supabase; prints the API URL and Publishable
 npm run dev                 # http://localhost:3000
 ```
 
-- Sign-up confirmation and password-reset emails land in **Mailpit** at http://127.0.0.1:54324,
-  unless you turn on Gmail (below).
+- Sign-up and password-reset codes land in **Mailpit** at http://127.0.0.1:54324, unless you
+  turn on Gmail (below). The email designs are in `supabase/templates/`.
 - To try it on your phone on the same Wi-Fi, open `http://<laptop-ip>:3000`. The camera and
   copy buttons need HTTPS on phones other than through `localhost`, so for real phone testing use
   the deployed site, or a tunnel (`ngrok http 3000`).
@@ -57,7 +58,9 @@ npm run lint
    host `smtp.gmail.com`, port `587`, username = the Gmail address, password = the app password,
    sender email = the same address, sender name `Evenly`. Then raise Authentication > Rate
    Limits > emails per hour (Gmail allows about 500 a day).
-4. **Local (optional):** put `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` in `.env` and uncomment the
+4. **Code emails on hosted:** `npm run email:templates` sends `supabase/templates/*.html` (the
+   6-digit code emails) to the hosted project. Run it again after editing them.
+5. **Local (optional):** put `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` in `.env` and uncomment the
    `[auth.email.smtp]` block in `supabase/config.toml`, then `npm run db:stop; npm run db:start`.
 
 ## Deploy (free): Supabase + Render
@@ -70,9 +73,9 @@ npm run lint
    service (`web/`, Node 22, Singapore). Fill in the four secret values it asks for:
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the hosted ones),
    `GEMINI_API_KEY`, `GROQ_API_KEY`. Optional: `AI_SCANS_PER_DAY`, `AI_ASSIGNS_PER_DAY`.
-3. **Back in Supabase**, Authentication > URL Configuration: Site URL = the Render address
-   (`https://evenly-d0nl.onrender.com`), and add `https://evenly-d0nl.onrender.com/**` and
-   `http://localhost:3000/**` to the redirect URLs, so email links land on the site.
+3. **Back in Supabase**, Authentication > URL Configuration: set the Site URL to the Render address
+   (`https://evenly-d0nl.onrender.com`). Emails carry codes rather than links, so nothing else
+   depends on it.
 
 Render's free plan sleeps after 15 minutes without visitors; the first visit after that takes
 up to a minute while it wakes. `NEXT_PUBLIC_*` values are built into the site, so redeploy after

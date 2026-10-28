@@ -12,7 +12,8 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:new": "supabase migration new",
-    "db:push": "node scripts/db-push.mjs"
+    "db:push": "node scripts/db-push.mjs",
+    "email:templates": "node scripts/email-templates.mjs"
   },
   "devDependencies": {
     "supabase": "2.120.0"
