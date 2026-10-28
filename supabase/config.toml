@@ -10,7 +10,7 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-schemas = ["public", "graphql_public"]
+schemas = ["public", "graphql_public", "evenly"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
@@ -249,16 +249,16 @@ otp_expiry = 3600
 # sender_name = "Evenly"
 
 # Uncomment to customize email template
-# Codes instead of links: the emails carry a 6-digit code ({{ .Token }}) typed into the site.
-# Shared by every app on the project: the templates pick a design from the user's `app` tag.
-# `npm run email:templates` sends the same templates to the hosted project.
+# Codes instead of links: emails carry a 6-digit code ({{ .Token }}) typed into the site. This
+# plain template is for local development only; the real (shared, branded) templates for the
+# hosted project live in the private zayn0001/supabase-project repo.
 [auth.email.template.confirmation]
 subject = "Your sign-up code"
-content_path = "./supabase/templates/confirmation.html"
+content_path = "./supabase/templates/dev-code.html"
 
 [auth.email.template.recovery]
 subject = "Your password reset code"
-content_path = "./supabase/templates/recovery.html"
+content_path = "./supabase/templates/dev-code.html"
 
 # [auth.email.template.invite]
 # subject = "You have been invited"

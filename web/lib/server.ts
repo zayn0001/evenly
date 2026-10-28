@@ -20,6 +20,7 @@ export async function guard(request: Request, kind: keyof typeof LIMITS): Promis
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: 'evenly' },
   });
   const { error: authError } = await supabase.auth.getUser(token);
   if (authError) return fail(401, 'Your session has expired. Sign in again.');

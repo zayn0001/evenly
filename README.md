@@ -21,7 +21,7 @@ only on drinks, service charge on everything. Copy each amount into Google Pay y
 | `web/app/api/scan` | Reads a bill photo with a chain of vision models (Gemini, then Groq Qwen). |
 | `web/app/api/assign` | Whisper (speech) + an open-weight model on Groq turn "who had what" into assignments. |
 | `web/lib/split.ts` | The split maths: exact fractions of paise, largest-remainder rounding, so shares always add up to the bill. Runs in the browser. |
-| `supabase/` | Email/password auth and Postgres (groups, people, splits) with row-level security. One migration. |
+| `supabase/` | Email/password auth and Postgres with row-level security. Evenly's tables (groups, people, splits) and functions live in their own `evenly` schema, since the project is shared with other apps. |
 
 The AI routes only serve signed-in users, with a per-account daily limit kept in the database
 (`AI_SCANS_PER_DAY`, `AI_ASSIGNS_PER_DAY`). Photos are shrunk to 2000 px in the browser before upload.
@@ -38,7 +38,7 @@ npm run dev                 # http://localhost:3000
 ```
 
 - Sign-up and password-reset codes land in **Mailpit** at http://127.0.0.1:54324, unless you
-  turn on Gmail (below). The email designs are in `supabase/templates/`.
+  turn on Gmail (below).
 - To try it on your phone on the same Wi-Fi, open `http://<laptop-ip>:3000`. The camera and
   copy buttons need HTTPS on phones other than through `localhost`, so for real phone testing use
   the deployed site, or a tunnel (`ngrok http 3000`).
@@ -58,12 +58,10 @@ npm run lint
    host `smtp.gmail.com`, port `587`, username = the Gmail address, password = the app password,
    sender email = the same address, sender name `Evenly`. Then raise Authentication > Rate
    Limits > emails per hour (Gmail allows about 500 a day).
-4. **Code emails on hosted:** `npm run email:templates` sends `supabase/templates/*.html` (the
-   6-digit code emails) to the hosted project. Run it again after editing them.
-   The templates are project-wide. Each app sharing the project tags its users at sign-up
-   (`signUp({ ..., options: { data: { app: 'evenly' } } })`); the templates show Evenly's design for
-   `app = evenly` and a plain one otherwise. Add an `{{ else if eq .Data.app "other" }}` branch per
-   app. Subjects and the sender name can't vary per app.
+4. **Email templates on hosted** live in the private `zayn0001/supabase-project` repo, which is
+   shared by every app on this Supabase project. Its GitHub Action applies them on each push.
+   Evenly tags its users at sign-up (`options.data.app = 'evenly'`) so those templates use
+   Evenly's design. Locally, `supabase/templates/dev-code.html` is a plain stand-in.
 5. **Local (optional):** put `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` in `.env` and uncomment the
    `[auth.email.smtp]` block in `supabase/config.toml`, then `npm run db:stop; npm run db:start`.
 
