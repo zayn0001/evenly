@@ -21,6 +21,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => useContext(Ctx);
 
+/** The name given at sign-up; accounts made before names were asked fall back to the email's first part. */
+export const displayName = (session: Session | null) =>
+  String(session?.user.user_metadata?.name ?? '').trim() || (session?.user.email ?? '').split('@')[0];
+
 /** Pages behind sign-in: shows the top bar, or sends signed-out visitors to /sign-in. */
 export function SignedIn({ children }: { children: ReactNode }) {
   const { session, ready } = useAuth();

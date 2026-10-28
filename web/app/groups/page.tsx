@@ -4,12 +4,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
-import { SignedIn } from '@/components/auth';
+import { displayName, SignedIn, useAuth } from '@/components/auth';
 import { NamesInput } from '@/components/names-input';
 import { Notice, Paper, Rule } from '@/components/paper';
 import { createGroup, listGroups, type GroupSummary } from '@/lib/db';
-
-const MY_NAME_KEY = 'evenly:my-name';
 
 export default function GroupsPage() {
   return (
@@ -68,7 +66,7 @@ function Groups() {
 
 function NewGroup({ onCancel, onCreated }: { onCancel: () => void; onCreated: (id: string) => void }) {
   const [name, setName] = useState('');
-  const [me, setMe] = useState(() => (typeof window === 'undefined' ? '' : (safeGet(MY_NAME_KEY) ?? '')));
+  const me = displayName(useAuth().session);
   const [others, setOthers] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +76,7 @@ function NewGroup({ onCancel, onCreated }: { onCancel: () => void; onCreated: (i
     setBusy(true);
     setError(null);
     try {
-      if (me.trim()) safeSet(MY_NAME_KEY, me.trim());
-      onCreated(await createGroup(name.trim(), me.trim(), others));
+      onCreated(await createGroup(name.trim(), me, others));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
@@ -93,13 +90,10 @@ function NewGroup({ onCancel, onCreated }: { onCancel: () => void; onCreated: (i
         Group name
         <input className="input" required maxLength={80} placeholder="Goa trip, Flat 4B…" value={name} onChange={(e) => setName(e.target.value)} />
       </label>
-      <label className="field">
-        Your name
-        <input className="input" maxLength={60} placeholder="So “I had the biryani” means you" value={me} onChange={(e) => setMe(e.target.value)} />
-      </label>
+      <p className="muted">You&apos;re in it as {me}.</p>
       <NamesInput label="Everyone else" names={others} onChange={setOthers} />
       <Notice lines={error ? [error] : []} tone="error" />
-      <button className="btn primary" type="submit" disabled={busy || !name.trim() || (!me.trim() && others.length === 0)}>
+      <button className="btn primary" type="submit" disabled={busy || !name.trim() || others.length === 0}>
         {busy ? 'Creating…' : 'Create group'}
       </button>
       <button className="btn ghost" type="button" onClick={onCancel}>
@@ -107,18 +101,4 @@ function NewGroup({ onCancel, onCreated }: { onCancel: () => void; onCreated: (i
       </button>
     </form>
   );
-}
-
-// localStorage can throw (private mode, blocked storage); the name is only a convenience.
-function safeGet(key: string) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function safeSet(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {}
 }

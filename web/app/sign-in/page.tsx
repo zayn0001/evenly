@@ -29,6 +29,7 @@ export default function SignIn() {
   const { session } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('sign-in');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -60,8 +61,13 @@ export default function SignIn() {
         }
         if (error) throw error;
       } else if (mode === 'sign-up') {
-        // Tags the account as Evenly's, so the shared Supabase email templates use Evenly's design.
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { app: 'evenly' } } });
+        // The name is how you appear in every group you make. The `app` tag makes the shared
+        // Supabase email templates use Evenly's design.
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { app: 'evenly', name: name.trim() } },
+        });
         if (error) throw error;
         // With "Confirm email" on there's no session until the emailed code is entered.
         if (!data.session) go('verify', `We sent a 6-digit code to ${email}.`);
@@ -102,6 +108,20 @@ export default function SignIn() {
       <Paper docket={mode === 'sign-up' || mode === 'verify' ? 'SIGN UP' : 'SIGN IN'} title={TITLES[mode]}>
         {mode === 'sign-in' && <p className="muted">Snap the bill, say who had what, and see what everyone&apos;s share is.</p>}
         <form className="stack" onSubmit={submit}>
+          {mode === 'sign-up' && (
+            <label className="field">
+              Your name
+              <input
+                className="input"
+                autoComplete="name"
+                required
+                maxLength={60}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <span className="muted">How you appear in your groups, so &ldquo;I had the biryani&rdquo; means you.</span>
+            </label>
+          )}
           <label className="field">
             Email
             <input
