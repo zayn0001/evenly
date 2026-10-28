@@ -16,8 +16,8 @@ export async function POST(request: Request) {
   if (!image.type.startsWith('image/')) return fail(415, 'That file is not an image.');
 
   try {
-    const { receipt, model } = await extractReceipt(new Uint8Array(await image.arrayBuffer()), image.type);
-    return Response.json({ receipt, issues: reconcile(receipt), model });
+    const { receipt, model, reads, checksOut } = await extractReceipt(new Uint8Array(await image.arrayBuffer()), image.type);
+    return Response.json({ receipt, issues: reconcile(receipt), model, reads, checksOut });
   } catch (e) {
     return fail(502, `Couldn't read the bill: ${e instanceof AIError || e instanceof Error ? e.message : String(e)}`);
   }

@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef } from 'react';
+
 import type { Adjustment, Item, Receipt } from '@/lib/types';
 
 let next = 0;
@@ -15,10 +17,30 @@ export const emptyReceipt = (): Receipt => ({
   grand_total: 0,
 });
 
-/** A number field that keeps what you type ("1." while typing 1.5) and reports numbers. */
-function Num({ value, onChange, label, step = 'any', width = 96 }: { value: number; onChange: (n: number) => void; label: string; step?: string; width?: number }) {
-  return (
+/**
+ * A number field that keeps what you type ("1." while typing 1.5) and reports numbers.
+ * `signed` adds a ± button: the iPhone number pad has no minus key, and round-offs and
+ * discounts are often negative.
+ */
+function Num({
+  value,
+  onChange,
+  label,
+  step = 'any',
+  width = 96,
+  signed,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  label: string;
+  step?: string;
+  width?: number;
+  signed?: boolean;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const field = (
     <input
+      ref={input}
       className="input num"
       style={{ width }}
       type="number"
@@ -29,6 +51,26 @@ function Num({ value, onChange, label, step = 'any', width = 96 }: { value: numb
       placeholder="0"
       onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
     />
+  );
+  if (!signed) return field;
+  const flip = () => {
+    const flipped = -value;
+    onChange(flipped);
+    if (input.current) input.current.value = flipped === 0 ? '' : String(flipped);
+  };
+  return (
+    <span className="row" style={{ gap: 4 }}>
+      <button
+        type="button"
+        className="btn small"
+        style={{ minWidth: 40, padding: '6px 8px' }}
+        onClick={flip}
+        aria-label={`Make ${label.toLowerCase()} ${value < 0 ? 'positive' : 'negative'}`}
+      >
+        ±
+      </button>
+      {field}
+    </span>
   );
 }
 
@@ -108,7 +150,7 @@ export function BillEditor({ receipt, onChange }: { receipt: Receipt; onChange: 
       </button>
 
       <h2>Taxes, charges, discounts</h2>
-      <p className="muted">Shared in proportion to what each person had. Use a minus amount for a discount.</p>
+      <p className="muted">Shared in proportion to what each person had. For a discount, tap ± to make the amount negative.</p>
       {extras.map((x, n) => (
         <div key={`${x.kind}-${n}-${extras.length}`} className="card stack" style={{ gap: 6, padding: 10 }}>
           <div className="row">
@@ -136,7 +178,7 @@ export function BillEditor({ receipt, onChange }: { receipt: Receipt; onChange: 
               <option value="alcohol">Alcohol (VAT)</option>
             </select>
             <label className="row muted" style={{ gap: 6, flex: 'none' }}>
-              ₹ <Num label={`Charge ${n + 1} amount`} value={x.amount} onChange={(amount) => setExtras(extras.map((y, i) => (i === n ? { ...y, amount } : y)))} />
+              ₹ <Num signed label={`Charge ${n + 1} amount`} value={x.amount} onChange={(amount) => setExtras(extras.map((y, i) => (i === n ? { ...y, amount } : y)))} />
             </label>
           </div>
         </div>
@@ -152,8 +194,14 @@ export function BillEditor({ receipt, onChange }: { receipt: Receipt; onChange: 
 
       <div className="row between">
         <span className="muted">Round off</span>
-        <Num label="Round off" value={receipt.round_off} onChange={(round_off) => onChange({ ...receipt, round_off })} />
+        <Num signed label="Round off" value={receipt.round_off} onChange={(round_off) => onChange({ ...receipt, round_off })} />
       </div>
+      {receipt.subtotal != null && (
+        <div className="row between">
+          <span className="muted">Subtotal on the bill</span>
+          <Num label="Subtotal" value={receipt.subtotal} onChange={(subtotal) => onChange({ ...receipt, subtotal })} />
+        </div>
+      )}
       <div className="row between">
         <strong>Grand total on the bill</strong>
         <Num label="Grand total" value={receipt.grand_total} onChange={(grand_total) => onChange({ ...receipt, grand_total })} />

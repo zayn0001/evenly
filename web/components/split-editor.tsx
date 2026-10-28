@@ -146,6 +146,8 @@ function BillStep({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanIssues, setScanIssues] = useState<string[]>([]);
+  // After every read the numbers are checked; if they never added up, say so.
+  const [unmatched, setUnmatched] = useState<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const scan = async (file: File) => {
@@ -156,6 +158,7 @@ function BillStep({
       onPhoto(await toDataUrl(small).catch(() => null));
       const res = await scanBill(small);
       setScanIssues(res.issues);
+      setUnmatched(res.checksOut ? null : res.reads);
       onReceipt(res.receipt);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -166,6 +169,8 @@ function BillStep({
 
   const issues = receipt ? (receipt.grand_total ? reconcile(receipt) : []) : scanIssues;
   const blank = receipt?.items.filter((i) => !i.name.trim()) ?? [];
+  // The split is only as right as the bill: no going on until the lines add up to the printed totals.
+  const mustFix = issues.length > 0;
   const continueWith = () => {
     if (!receipt) return;
     const items = receipt.items.filter((i) => i.name.trim() || i.total);
@@ -198,7 +203,7 @@ function BillStep({
             {photo && <img src={photo} alt="The bill you picked" className="thumb" />}
             {busy && (
               <p role="status" style={{ color: 'var(--blue)', textAlign: 'center' }}>
-                Reading items, taxes and charges…
+                Reading items, taxes and charges… If the numbers don&apos;t add up, it reads the bill again (up to 3 times).
               </p>
             )}
             <Notice lines={error ? [error] : []} tone="error" />
@@ -212,7 +217,15 @@ function BillStep({
         )}
         {receipt && (
           <>
-            <Notice lines={issues.map((i) => `Check this: ${i}`)} />
+            {unmatched && mustFix && (
+              <Notice
+                tone="error"
+                lines={[
+                  `We read the bill ${unmatched} times and the numbers still don't add up. Compare the lines below with the photo and fix them so they match before going on.`,
+                ]}
+              />
+            )}
+            <Notice lines={issues.map((i) => `Doesn't add up: ${i}`)} />
             <BillEditor receipt={receipt} onChange={onReceipt} />
             <Rule />
             <button
@@ -230,8 +243,13 @@ function BillStep({
       </Paper>
       <div className="actions">
         {receipt && (
-          <button className="btn primary" type="button" onClick={continueWith} disabled={receipt.items.length === 0 || blank.length === receipt.items.length}>
-            Next: who had what
+          <button
+            className="btn primary"
+            type="button"
+            onClick={continueWith}
+            disabled={mustFix || receipt.items.length === 0 || blank.length === receipt.items.length}
+          >
+            {mustFix ? 'Fix the bill so it adds up' : 'Next: who had what'}
           </button>
         )}
         <button className="btn ghost" type="button" onClick={onCancel}>

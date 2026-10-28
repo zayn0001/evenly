@@ -133,35 +133,36 @@ const extractWith: Extract = async (provider, model, dataUrl) =>
     ),
   );
 
+export const MAX_READS = 3;
+
 /**
- * Walks the model chain: returns the first read whose numbers add up, else the closest one.
- * A failing call (rate limit, bad JSON, timeout) or a read that doesn't add up moves on to the
- * next model, so the extra calls only happen for hard bills.
+ * Reads the bill until its numbers add up (items vs subtotal vs grand total), at most MAX_READS
+ * times, moving through the model chain in order (and around again if it's shorter). If no read
+ * adds up, the last one is returned with `checksOut: false` for the person to correct. A failed
+ * call (rate limit, bad JSON, timeout) counts as a try.
  */
 export async function extractReceipt(
   image: Uint8Array,
   mime: string,
   models = receiptModels(),
   extract: Extract = extractWith,
-): Promise<{ receipt: Receipt; model: string }> {
+): Promise<{ receipt: Receipt; model: string; reads: number; checksOut: boolean }> {
   if (models.length === 0) throw new AIError('No AI keys configured: set GEMINI_API_KEY and/or GROQ_API_KEY.');
   const dataUrl = `data:${mime};base64,${Buffer.from(image).toString('base64')}`;
-  let best: { issues: number; receipt: Receipt; model: string } | null = null;
+  let last: { receipt: Receipt; model: string } | null = null;
   const errors: string[] = [];
-  for (const [provider, model] of models) {
-    let receipt: Receipt;
+  for (let read = 1; read <= MAX_READS; read++) {
+    const [provider, model] = models[(read - 1) % models.length];
     try {
-      receipt = await extract(provider, model, dataUrl);
+      const receipt = await extract(provider, model, dataUrl);
+      if (reconcile(receipt).length === 0) return { receipt, model, reads: read, checksOut: true };
+      last = { receipt, model };
     } catch (e) {
       errors.push(`${model}: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`.slice(0, 160));
-      continue;
     }
-    const issues = reconcile(receipt).length;
-    if (issues === 0) return { receipt, model };
-    if (!best || issues < best.issues) best = { issues, receipt, model };
   }
-  if (best) return { receipt: best.receipt, model: best.model };
-  throw new AIError(`Every bill-reading model failed. ${errors.join(' | ')}`);
+  if (last) return { ...last, reads: MAX_READS, checksOut: false };
+  throw new AIError(`Couldn't read the bill in ${MAX_READS} tries. ${errors.join(' | ')}`);
 }
 
 // ---------------------------------------------------------------- who had what

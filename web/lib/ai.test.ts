@@ -14,36 +14,47 @@ const GOOD: Receipt = parseReceipt({
 const BAD = { ...GOOD, grand_total: 9999 };
 const MODELS: [string, string][] = [['gemini', 'a'], ['gemini', 'b'], ['groq', 'c']];
 
-async function chain(behaviour: Record<string, Receipt | Error>) {
+/** behaviour: model -> what each of its reads returns (a Receipt, or an Error to throw), in order. */
+async function chain(behaviour: Record<string, (Receipt | Error)[]>) {
   const calls: string[] = [];
   const res = await extractReceipt(new Uint8Array([1]), 'image/jpeg', MODELS, async (_p, model) => {
     calls.push(model);
-    const r = behaviour[model];
+    const r = behaviour[model].shift()!;
     if (r instanceof Error) throw r;
     return r;
   });
   return { ...res, calls };
 }
 
-test('the first read that adds up wins, without calling the rest', async () => {
-  const { model, calls } = await chain({ a: GOOD });
-  assert.equal(model, 'a');
-  assert.deepEqual(calls, ['a']);
+test('the first read that adds up wins, without reading again', async () => {
+  const { model, reads, checksOut, calls } = await chain({ a: [GOOD] });
+  assert.deepEqual([model, reads, checksOut, calls], ['a', 1, true, ['a']]);
 });
 
-test('errors and rate limits fall through to the next model', async () => {
-  const { model, calls } = await chain({ a: new AIError('429'), b: new SyntaxError('bad json'), c: GOOD });
-  assert.equal(model, 'c');
-  assert.deepEqual(calls, ['a', 'b', 'c']);
+test("a read that doesn't add up is read again, by the next model", async () => {
+  const { model, reads, checksOut, calls } = await chain({ a: [BAD], b: [GOOD] });
+  assert.deepEqual([model, reads, checksOut, calls], ['b', 2, true, ['a', 'b']]);
 });
 
-test("a read that doesn't add up tries the next model, and the best one is kept", async () => {
-  assert.equal((await chain({ a: BAD, b: GOOD })).model, 'b');
-  assert.equal((await chain({ a: BAD, b: BAD, c: BAD })).model, 'a');
+test('errors count as tries and fall through', async () => {
+  const { model, calls } = await chain({ a: [new AIError('429')], b: [new SyntaxError('bad json')], c: [GOOD] });
+  assert.deepEqual([model, calls], ['c', ['a', 'b', 'c']]);
 });
 
-test('when every model fails, the errors are reported', async () => {
-  await assert.rejects(chain({ a: new AIError('x'), b: new AIError('y'), c: new AIError('z') }), /Every bill-reading model failed/);
+test('after 3 reads that never add up, the third is returned and flagged', async () => {
+  const third = { ...BAD, restaurant: 'third read' };
+  const { receipt, reads, checksOut, calls } = await chain({ a: [BAD], b: [BAD], c: [third] });
+  assert.deepEqual([receipt.restaurant, reads, checksOut, calls], ['third read', 3, false, ['a', 'b', 'c']]);
+});
+
+test('a one-model chain reads with it three times', async () => {
+  const calls: string[] = [];
+  const res = await extractReceipt(new Uint8Array([1]), 'image/jpeg', [['gemini', 'solo']], async (_p, m) => (calls.push(m), BAD));
+  assert.deepEqual([calls, res.checksOut], [['solo', 'solo', 'solo'], false]);
+});
+
+test('when every try fails, the errors are reported', async () => {
+  await assert.rejects(chain({ a: [new AIError('x')], b: [new AIError('y')], c: [new AIError('z')] }), /in 3 tries/);
 });
 
 test('parseReceipt renumbers ids, cleans numbers and refuses empty bills', () => {
