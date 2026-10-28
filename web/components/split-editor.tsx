@@ -10,7 +10,7 @@ import { Recorder } from '@/components/recorder';
 import { assign, scanBill, shrinkImage, toDataUrl } from '@/lib/api';
 import { getGroup, getSplit, saveSplit, type Member } from '@/lib/db';
 import { fmtUnits, plainAmount, rupees } from '@/lib/format';
-import { reconcile } from '@/lib/reconcile';
+import { reconcile, withImpliedRoundOff } from '@/lib/reconcile';
 import { SplitError, splitBill } from '@/lib/split';
 import type { Assignments, Person, Receipt, SplitResult } from '@/lib/types';
 
@@ -175,8 +175,9 @@ function BillStep({
     if (!receipt) return;
     const items = receipt.items.filter((i) => i.name.trim() || i.total);
     const computed = items.reduce((t, i) => t + i.total, 0) + [...receipt.charges, ...receipt.taxes].reduce((t, a) => t + a.amount, 0) + receipt.round_off;
-    // Typed-in bills often skip the grand total; use what the lines add up to.
-    onNext({ ...receipt, items, grand_total: receipt.grand_total || Math.round(computed * 100) / 100 });
+    // Typed-in bills often skip the grand total; use what the lines add up to. A bill whose total
+    // is rounded without a round-off line gets one, so the split matches the printed total.
+    onNext(withImpliedRoundOff({ ...receipt, items, grand_total: receipt.grand_total || Math.round(computed * 100) / 100 }));
   };
 
   return (

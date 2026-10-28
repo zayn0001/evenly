@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { reconcile } from './reconcile.ts';
+import { reconcile, withImpliedRoundOff } from './reconcile.ts';
 import { largestRemainder, rational, SplitError, splitBill } from './split.ts';
 import type { Assignments, Receipt, SplitResult } from './types.ts';
 
@@ -120,4 +120,35 @@ test('rational() finds simple fractions', () => {
 
 test('reconcile flags a misread total', () => {
   assert.ok(reconcile({ ...BILL, grand_total: 2500 }).some((i) => i.includes('grand total')));
+});
+
+test('a total rounded without a round-off line gets one, so the split matches the printed total', () => {
+  // A real bill: lines add up to 715.02, "Net Amount: 715.00", no round-off printed.
+  const bill: Receipt = {
+    restaurant: null,
+    items: [
+      { id: 'i1', name: 'Mushroom Biriyani', qty: 3, unit_price: 94.29, total: 282.87, tax_class: 'food' },
+      { id: 'i2', name: 'Mushroom Fried Rice', qty: 2, unit_price: 109.52, total: 219.04, tax_class: 'food' },
+      { id: 'i3', name: 'Paneer 65', qty: 1, unit_price: 84.76, total: 84.76, tax_class: 'food' },
+      { id: 'i4', name: 'Meals', qty: 1, unit_price: 94.29, total: 94.29, tax_class: 'food' },
+    ],
+    charges: [],
+    taxes: [
+      { name: 'CGST 2.5%', amount: 17.03, applies_to: 'food' },
+      { name: 'SGST 2.5%', amount: 17.03, applies_to: 'food' },
+    ],
+    round_off: 0,
+    subtotal: null,
+    grand_total: 715,
+  };
+  const fixed = withImpliedRoundOff(bill);
+  assert.equal(fixed.round_off, -0.02);
+  const r = splitBill(fixed, PEOPLE, { i1: { me: 1, s: 1, j: 1 }, i2: { me: 1, s: 1 }, i3: { j: 1 }, i4: { s: 1 } });
+  assert.equal(r.bill_total, 715);
+  assert.equal(total(r), 715);
+  assert.deepEqual(r.warnings, []);
+  // Not touched: a printed round-off, an exact match, or a gap of ₹1 or more (a misread, not rounding).
+  assert.equal(withImpliedRoundOff({ ...bill, round_off: -0.5 }).round_off, -0.5);
+  assert.equal(withImpliedRoundOff({ ...bill, grand_total: 715.02 }).round_off, 0);
+  assert.equal(withImpliedRoundOff({ ...bill, grand_total: 720 }).round_off, 0);
 });

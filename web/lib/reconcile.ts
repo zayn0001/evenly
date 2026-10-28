@@ -23,3 +23,15 @@ export function reconcile(r: Receipt): string[] {
   }
   return issues;
 }
+
+/**
+ * Many bills round the total without printing a round-off line (lines 715.02, "Net Amount 715.00").
+ * When there's no round-off and the lines miss the printed total by under ₹1, that gap is the
+ * round-off; filling it in makes the numbers match exactly and the split use the printed total.
+ */
+export function withImpliedRoundOff(r: Receipt): Receipt {
+  if (r.round_off !== 0 || !r.grand_total) return r;
+  const lines = r.items.reduce((t, i) => t + i.total, 0) + [...r.charges, ...r.taxes].reduce((t, a) => t + a.amount, 0);
+  const gap = Math.round((r.grand_total - lines) * 100) / 100;
+  return gap !== 0 && Math.abs(gap) < TOLERANCE ? { ...r, round_off: gap } : r;
+}

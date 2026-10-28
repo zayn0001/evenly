@@ -1,7 +1,7 @@
 // Server only: AI calls through OpenAI-compatible APIs, so providers are swappable.
 // Bills: a chain of vision models (Gemini free tier first, Groq's open-weight Qwen as fallback).
 // Who-had-what: Whisper for speech, then an open-weight text model on Groq.
-import { reconcile } from './reconcile.ts';
+import { reconcile, withImpliedRoundOff } from './reconcile.ts';
 import type { Assignments, Person, Receipt } from './types.ts';
 
 const env = (k: string, fallback = '') => process.env[k] || fallback;
@@ -121,7 +121,7 @@ Rules:
 type Extract = (provider: string, model: string, dataUrl: string) => Promise<Receipt>;
 
 const extractWith: Extract = async (provider, model, dataUrl) =>
-  parseReceipt(
+  withImpliedRoundOff(parseReceipt(
     await chatJson(
       provider,
       model,
@@ -131,7 +131,7 @@ const extractWith: Extract = async (provider, model, dataUrl) =>
       ],
       RECEIPT_TIMEOUT_MS(),
     ),
-  );
+  ));
 
 export const MAX_READS = 3;
 
