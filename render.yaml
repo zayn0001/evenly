@@ -18,6 +18,10 @@ services:
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         sync: false
+      # Cloudflare Turnstile site key (public). Set it and redeploy BEFORE turning the check on in
+      # Supabase (supabase-project's TURNSTILE_SECRET), or sign-in stops working.
+      - key: NEXT_PUBLIC_TURNSTILE_SITE_KEY
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY

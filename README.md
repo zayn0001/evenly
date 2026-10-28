@@ -69,6 +69,21 @@ npm run lint
 5. **Local (optional):** put `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` in `.env` and uncomment the
    `[auth.email.smtp]` block in `supabase/config.toml`, then `npm run db:stop; npm run db:start`.
 
+## Stopping email spam
+
+Every sign-up, sign-in, "send a new code" and password reset passes a Cloudflare Turnstile check
+(free, usually invisible), which Supabase verifies before sending any email, so scripts can't use
+Evenly to spam addresses or burn the hourly email limit. Supabase also allows one code email a
+minute per address (the page counts down) and 30 emails an hour overall.
+
+To turn it on for the live site, in this order:
+1. Cloudflare dashboard > Turnstile > Add widget, hostnames `evenly-d0nl.onrender.com` and `localhost`.
+2. Render: set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` to the widget's **site key**, and redeploy.
+3. `supabase-project` repo: add the **secret key** as the Actions secret `TURNSTILE_SECRET` and re-run
+   its workflow, which turns the check on in Supabase. Doing this before step 2 would break sign-in.
+
+Locally it already runs with Cloudflare's always-passing test keys.
+
 ## Deploy (free): Supabase + Render
 
 1. **Supabase** (already set up for the hosted project): fill the `POSTGRES_*` lines of `.env`

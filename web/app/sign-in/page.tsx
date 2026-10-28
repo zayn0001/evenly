@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { useAuth } from '@/components/auth';
+import { useCaptcha } from '@/components/captcha';
 import { Notice, Paper } from '@/components/paper';
 import { supabase } from '@/lib/supabase';
 
@@ -36,10 +37,19 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const captcha = useCaptcha();
+  // Seconds until another code email may be sent (Supabase allows one a minute per address).
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     if (session) router.replace('/groups');
   }, [session, router]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const go = (m: Mode, message: string | null = null) => {
     setMode(m);
@@ -54,10 +64,10 @@ export default function SignIn() {
     setError(null);
     try {
       if (mode === 'sign-in') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captcha.token } });
+        // No automatic re-send here: every code email needs its own human check.
         if (error?.code === 'email_not_confirmed') {
-          await supabase.auth.resend({ type: 'signup', email });
-          return go('verify', `Confirm your email first: we sent a new code to ${email}.`);
+          return go('verify', `Confirm your email first: enter the code we sent to ${email}, or send a new one.`);
         }
         if (error) throw error;
       } else if (mode === 'sign-up') {
@@ -66,17 +76,21 @@ export default function SignIn() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { app: 'evenly', name: name.trim() } },
+          options: { data: { app: 'evenly', name: name.trim() }, captchaToken: captcha.token },
         });
         if (error) throw error;
         // With "Confirm email" on there's no session until the emailed code is entered.
-        if (!data.session) go('verify', `We sent a 6-digit code to ${email}.`);
+        if (!data.session) {
+          setCooldown(60);
+          go('verify', `We sent a 6-digit code to ${email}.`);
+        }
       } else if (mode === 'verify') {
         const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
         if (error) throw error; // success signs you in; the effect above moves on
       } else if (mode === 'forgot') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { captchaToken: captcha.token });
         if (error) throw error;
+        setCooldown(60);
         go('reset', `If ${email} has an account, a 6-digit code is on its way.`);
       } else {
         // The code signs you in for this one purpose; then the new password is saved.
@@ -89,15 +103,23 @@ export default function SignIn() {
       setError(friendly(err instanceof Error ? err.message : String(err)));
     } finally {
       setBusy(false);
+      captcha.reset(); // tokens are single-use
     }
   };
 
   const resend = async () => {
     setError(null);
+    const captchaToken = captcha.token;
     const { error } =
-      mode === 'verify' ? await supabase.auth.resend({ type: 'signup', email }) : await supabase.auth.resetPasswordForEmail(email);
+      mode === 'verify'
+        ? await supabase.auth.resend({ type: 'signup', email, options: { captchaToken } })
+        : await supabase.auth.resetPasswordForEmail(email, { captchaToken });
+    captcha.reset();
     if (error) setError(friendly(error.message));
-    else setInfo(`Sent a new code to ${email}.`);
+    else {
+      setInfo(`Sent a new code to ${email}.`);
+      setCooldown(60);
+    }
   };
 
   const needsCode = mode === 'verify' || mode === 'reset';
@@ -168,13 +190,16 @@ export default function SignIn() {
           )}
           <Notice lines={info ? [info] : []} />
           <Notice lines={error ? [error] : []} tone="error" />
-          <button className="btn primary" type="submit" disabled={busy}>
-            {busy ? 'Working…' : BUTTONS[mode]}
+          {/* The human check: invisible unless Cloudflare wants a click. Code entry doesn't need it. */}
+          {captcha.element}
+          <Notice lines={captcha.failed ? ["Couldn't run the quick human check. Reload the page and try again."] : []} tone="error" />
+          <button className="btn primary" type="submit" disabled={busy || (!needsCode && !captcha.ready)}>
+            {busy ? 'Working…' : !needsCode && !captcha.ready ? 'Checking you’re human…' : BUTTONS[mode]}
           </button>
         </form>
         {needsCode && (
-          <button className="btn ghost" type="button" onClick={resend}>
-            Send a new code
+          <button className="btn ghost" type="button" onClick={resend} disabled={cooldown > 0 || !captcha.ready}>
+            {cooldown > 0 ? `Send a new code (in ${cooldown}s)` : 'Send a new code'}
           </button>
         )}
         <hr className="rule double" />
@@ -202,6 +227,7 @@ function friendly(message: string) {
   if (/already registered/i.test(message)) return 'There’s already an account with that email. Sign in instead.';
   if (/expired|invalid/i.test(message) && /otp|token|code/i.test(message)) return 'That code is wrong or has expired. Check the latest email, or send a new code.';
   if (/rate limit|security purposes/i.test(message)) return 'Too many emails just now. Wait a minute and try again.';
+  if (/captcha/i.test(message)) return 'The human check didn’t go through. Wait a moment and try again.';
   if (/should be different/i.test(message)) return 'Pick a password different from your old one.';
   return message;
 }

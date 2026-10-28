@@ -211,11 +211,13 @@ token_verifications = 30
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 30
 
-# Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# [auth.captcha]
-# enabled = true
-# provider = "hcaptcha"
-# secret = ""
+# Bot check on sign-up, sign-in, resend and password reset (stops scripted email spam).
+# Locally this is Cloudflare Turnstile's public test secret, which always passes; it pairs with
+# NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA in the root .env.
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "1x0000000000000000000000000000000AA"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
