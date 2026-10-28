@@ -8,6 +8,7 @@ import { BillEditor, emptyReceipt } from '@/components/bill-editor';
 import { Line, Notice, Paper, Rule, useToast } from '@/components/paper';
 import { Recorder } from '@/components/recorder';
 import { assign, scanBill, shrinkImage, toDataUrl } from '@/lib/api';
+import { counted, itemStatus, shareEqually, type ItemStatus } from '@/lib/assign';
 import { getGroup, getSplit, saveSplit, type Member } from '@/lib/db';
 import { fmtUnits, plainAmount, rupees } from '@/lib/format';
 import { reconcile, withImpliedRoundOff } from '@/lib/reconcile';
@@ -104,6 +105,7 @@ export function SplitEditor({ groupId, splitId }: { groupId: string; splitId?: s
           meId={meId}
           assignments={assignments}
           onChange={(a) => setDraft({ assignments: a })}
+          onItemSplit={(receipt, a) => setDraft({ receipt, assignments: a })}
           onBack={() => setDraft({ step: 'bill' })}
           onNext={() => setDraft({ step: 'result' })}
         />
@@ -269,6 +271,7 @@ function WhoStep({
   meId,
   assignments,
   onChange,
+  onItemSplit,
   onBack,
   onNext,
 }: {
@@ -278,6 +281,8 @@ function WhoStep({
   meId: string | null;
   assignments: Assignments;
   onChange: (a: Assignments) => void;
+  /** Switching an item between counts/equal and ratio changes the bill line and its shares together. */
+  onItemSplit: (r: Receipt, a: Assignments) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -303,11 +308,12 @@ function WhoStep({
     }
   };
 
-  const toggle = (itemId: string, pid: string) => {
-    const shares = { ...(assignments[itemId] ?? {}) };
-    if (shares[pid]) delete shares[pid];
-    else shares[pid] = 1;
-    onChange({ ...assignments, [itemId]: shares });
+  // Picking or unpicking someone re-shares the item equally among whoever's picked (for 3 naans
+  // between 2 that's 1½ each); the steppers below fine-tune it.
+  const toggle = (item: Receipt['items'][number], pid: string) => {
+    const picked = Object.keys(assignments[item.id] ?? {});
+    const next = picked.includes(pid) ? picked.filter((id) => id !== pid) : [...picked, pid];
+    onChange({ ...assignments, [item.id]: shareEqually(item, next) });
   };
   const setUnits = (itemId: string, pid: string, units: number) => {
     const shares = { ...(assignments[itemId] ?? {}) };
@@ -315,11 +321,22 @@ function WhoStep({
     else shares[pid] = units;
     onChange({ ...assignments, [itemId]: shares });
   };
-  const everyoneOn = (itemId: string) => onChange({ ...assignments, [itemId]: Object.fromEntries(people.map((p) => [p.id, 1])) });
-  const splitAllEqually = () => onChange(Object.fromEntries(receipt.items.map((i) => [i.id, Object.fromEntries(people.map((p) => [p.id, 1]))])));
+  const setMode = (item: Receipt['items'][number], ratio: boolean) => {
+    const changed: Receipt['items'][number] = { ...item, split: 'ratio' };
+    if (!ratio) delete changed.split;
+    // Whoever's picked stays picked; the numbers restart from an equal share in the new mode.
+    onItemSplit(
+      { ...receipt, items: receipt.items.map((i) => (i.id === item.id ? changed : i)) },
+      { ...assignments, [item.id]: shareEqually(changed, Object.keys(assignments[item.id] ?? {})) },
+    );
+  };
+  const everyone = people.map((p) => p.id);
+  const everyoneOn = (item: Receipt['items'][number]) => onChange({ ...assignments, [item.id]: shareEqually(item, everyone) });
+  const splitAllEqually = () => onChange(Object.fromEntries(receipt.items.map((i) => [i.id, shareEqually(i, everyone)])));
 
-  const assigned = (id: string) => Object.values(assignments[id] ?? {}).some((u) => u > 0);
-  const left = receipt.items.filter((i) => !assigned(i.id)).length;
+  // Not done: nobody picked, or (for counted items) the counts don't add up to the quantity.
+  const statusOf = (item: Receipt['items'][number]) => itemStatus(item, assignments[item.id]);
+  const left = receipt.items.filter((i) => statusOf(i).kind !== 'done').length;
   const firstNames = people.filter((p) => p.id !== meId).slice(0, 2).map((p) => p.name.split(' ')[0]);
 
   return (
@@ -367,59 +384,121 @@ function WhoStep({
         </div>
         {receipt.items.map((item) => {
           const shares = assignments[item.id] ?? {};
-          const done = assigned(item.id);
+          const status = statusOf(item);
+          const done = status.kind === 'done';
           return (
             <fieldset key={item.id} className={`card stack${done ? '' : ' todo'}`} style={{ gap: 8, margin: 0 }}>
               <legend className="sr-only">{item.name}</legend>
               <Line label={<strong>{item.qty > 1 ? `${fmtUnits(item.qty)} × ${item.name}` : item.name}</strong>} value={rupees(item.total)} />
               <div className="row wrap" style={{ gap: 6 }}>
                 {people.map((p) => (
-                  <button key={p.id} type="button" className="chip" aria-pressed={!!shares[p.id]} onClick={() => toggle(item.id, p.id)}>
+                  <button key={p.id} type="button" className="chip" aria-pressed={!!shares[p.id]} onClick={() => toggle(item, p.id)}>
                     {p.id === meId ? 'Me' : p.name}
-                    {item.qty > 1 && shares[p.id] ? ` ×${fmtUnits(shares[p.id])}` : ''}
+                    {counted(item) && shares[p.id] ? ` ×${fmtUnits(shares[p.id])}` : ''}
                   </button>
                 ))}
                 {people.length > 2 && (
-                  <button type="button" className="link" onClick={() => everyoneOn(item.id)}>
+                  <button type="button" className="link" onClick={() => everyoneOn(item)}>
                     Everyone
                   </button>
                 )}
               </div>
-              {item.qty > 1 && Object.keys(shares).length > 0 && (
-                <div className="stack" style={{ gap: 4 }}>
-                  <p className="muted">How many each? Equal numbers split it equally.</p>
-                  {people
-                    .filter((p) => shares[p.id])
-                    .map((p) => (
-                      <div key={p.id} className="row between">
-                        <span>{p.id === meId ? 'Me' : p.name}</span>
-                        <span className="stepper">
-                          <button type="button" aria-label={`Less for ${p.name}`} onClick={() => setUnits(item.id, p.id, Math.max(0, shares[p.id] - 0.5))}>
-                            −
-                          </button>
-                          <span aria-live="polite">{fmtUnits(shares[p.id])}</span>
-                          <button type="button" aria-label={`More for ${p.name}`} onClick={() => setUnits(item.id, p.id, shares[p.id] + 0.5)}>
-                            +
-                          </button>
-                        </span>
-                      </div>
-                    ))}
-                </div>
+              {Object.keys(shares).length > 0 && (item.qty > 1 || Object.keys(shares).length > 1) && (
+                <SharesEditor
+                  item={item}
+                  shares={shares}
+                  people={people.filter((p) => shares[p.id])}
+                  meId={meId}
+                  onUnits={(pid, units) => setUnits(item.id, pid, units)}
+                  onRatio={(ratio) => setMode(item, ratio)}
+                />
               )}
-              {!done && <p className="muted" style={{ color: 'var(--blue)' }}>Who had this?</p>}
+              <ItemProblem status={status} />
             </fieldset>
           );
         })}
       </Paper>
       <div className="actions">
         <button className="btn primary" type="button" disabled={left > 0} onClick={onNext}>
-          {left ? `${left} item${left > 1 ? 's' : ''} left to assign` : 'Next: see the split'}
+          {left ? `${left} item${left > 1 ? 's' : ''} not fully assigned` : 'Next: see the split'}
         </button>
         <button className="btn ghost" type="button" onClick={onBack}>
           Back to the bill
         </button>
       </div>
     </>
+  );
+}
+
+/**
+ * How an item is shared between the people picked for it: by count (3 naans: 2 and 1; must add
+ * up), equally (one dish), or by ratio (2 : 1, any numbers). The switch flips between them.
+ */
+function SharesEditor({
+  item,
+  shares,
+  people,
+  meId,
+  onUnits,
+  onRatio,
+}: {
+  item: Receipt['items'][number];
+  shares: Record<string, number>;
+  people: Person[];
+  meId: string | null;
+  onUnits: (pid: string, units: number) => void;
+  onRatio: (ratio: boolean) => void;
+}) {
+  const ratio = item.split === 'ratio';
+  const byCount = counted(item);
+  const step = byCount ? 0.5 : 1;
+  const chip = { minHeight: 34, fontSize: 13 };
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      <div className="row" role="group" aria-label={`How ${item.name} is shared`} style={{ gap: 6 }}>
+        <button type="button" className="chip" style={chip} aria-pressed={!ratio} onClick={() => ratio && onRatio(false)}>
+          {item.qty > 1 ? 'By count' : 'Equally'}
+        </button>
+        <button type="button" className="chip" style={chip} aria-pressed={ratio} onClick={() => !ratio && onRatio(true)}>
+          By ratio
+        </button>
+      </div>
+      <p className="muted">
+        {ratio
+          ? `Shared in proportion ${people.map((p) => fmtUnits(shares[p.id])).join(' : ')}.`
+          : byCount
+            ? `How many each? They need to add up to ${fmtUnits(item.qty)}.`
+            : 'Shared equally. Switch to ratio for an uneven split.'}
+      </p>
+      {(ratio || byCount) &&
+        people.map((p) => (
+          <div key={p.id} className="row between">
+            <span>{p.id === meId ? 'Me' : p.name}</span>
+            <span className="stepper">
+              <button type="button" aria-label={`Less for ${p.name}`} onClick={() => onUnits(p.id, Math.max(0, shares[p.id] - step))}>
+                −
+              </button>
+              <span aria-live="polite">{fmtUnits(shares[p.id])}</span>
+              <button type="button" aria-label={`More for ${p.name}`} onClick={() => onUnits(p.id, shares[p.id] + step)}>
+                +
+              </button>
+            </span>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+/** What's missing on an item: nobody picked yet, or counts that don't add up to the quantity. */
+function ItemProblem({ status }: { status: ItemStatus }) {
+  if (status.kind === 'done') return null;
+  if (status.kind === 'empty') return <p className="muted" style={{ color: 'var(--blue)' }}>Who had this?</p>;
+  const gap = Math.abs(status.qty - status.assigned);
+  return (
+    <p role="status" style={{ color: 'var(--red)', fontSize: 13, fontWeight: 700 }}>
+      {fmtUnits(status.assigned)} of {fmtUnits(status.qty)} assigned:{' '}
+      {status.kind === 'short' ? `${fmtUnits(gap)} still to give someone` : `${fmtUnits(gap)} too many`}
+    </p>
   );
 }
 
@@ -446,7 +525,7 @@ function BillPeek({ receipt, photo }: { receipt: Receipt; photo: string | null }
   }
   return (
     <details className="card">
-      <summary style={{ cursor: 'pointer', fontWeight: 700, minHeight: 32 }}>Your bill ({receipt.items.length} items)</summary>
+      <summary style={{ cursor: 'pointer', fontWeight: 700, minHeight: 32 }}>Your bill ({receipt.items.length} item{receipt.items.length === 1 ? '' : 's'})</summary>
       <div className="stack" style={{ gap: 2, paddingTop: 6 }}>
         {receipt.items.map((i) => (
           <Line key={i.id} label={i.qty > 1 ? `${fmtUnits(i.qty)} × ${i.name}` : i.name} value={rupees(i.total)} />

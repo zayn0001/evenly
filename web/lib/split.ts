@@ -89,7 +89,7 @@ export function splitBill(receipt: Receipt, people: Person[], assignments: Assig
     const weights = new Map<string, Q>();
     for (const [pid, units] of shares) bump(weights, pid, rational(units));
     const totalUnits = sum(weights.values());
-    if (item.qty > 1 && !eq(totalUnits, rational(item.qty))) {
+    if (item.qty > 1 && item.split !== 'ratio' && !eq(totalUnits, rational(item.qty))) {
       warnings.push(`${item.name}: ${+toNumber(totalUnits).toFixed(3)} of ${item.qty} units assigned; split proportionally`);
     }
 

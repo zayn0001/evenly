@@ -152,3 +152,18 @@ test('a total rounded without a round-off line gets one, so the split matches th
   assert.equal(withImpliedRoundOff({ ...bill, grand_total: 715.02 }).round_off, 0);
   assert.equal(withImpliedRoundOff({ ...bill, grand_total: 720 }).round_off, 0);
 });
+
+test('an item switched to a ratio splits by proportion, whatever the quantity', () => {
+  const bill: Receipt = {
+    restaurant: null,
+    items: [{ id: 'a', name: 'Apples', qty: 3, unit_price: 100, total: 300, tax_class: 'food', split: 'ratio' }],
+    charges: [],
+    taxes: [],
+    round_off: 0,
+    subtotal: null,
+    grand_total: 300,
+  };
+  const r = splitBill(bill, PEOPLE.slice(0, 2), { a: { me: 2, s: 1 } });
+  assert.deepEqual(r.people.map((p) => p.total), [200, 100]);
+  assert.deepEqual(r.warnings, []); // 2 + 1 = 3 is a coincidence; ratios aren't counts, so no "units" check
+});

@@ -8,6 +8,11 @@ export type Item = {
   total: number;
   /** Which tax bucket the line falls in: "food" (GST), "alcohol" (VAT), "other". */
   tax_class: string;
+  /**
+   * How "who had what" is given for this line. Unset: counts for quantities above 1 (they must add
+   * up to qty), equal shares otherwise. 'ratio': the numbers are proportions (2 : 1), any total.
+   */
+  split?: 'ratio';
 };
 
 /** A tax, service charge, packing charge or discount (negative amount). */
