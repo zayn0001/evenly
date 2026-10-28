@@ -95,7 +95,6 @@ ok('you can save a split in your group');
 {
   await fails(null, `select * from evenly.groups`, [], /permission denied/);
   await fails(null, `select evenly.create_group('x', 'y', array[]::text[])`, [], /permission denied/);
-  await fails(null, `select evenly.use_ai('scan', 5)`, [], /permission denied/);
   ok('signed-out visitors get nothing');
 }
 
@@ -103,15 +102,6 @@ ok('you can save a split in your group');
   await fails(ANA, `insert into evenly.group_members (group_id, name, is_me) values ($1, 'Ana again', true)`, [trip], /group_members_one_me/);
   await fails(ANA, `insert into evenly.group_members (group_id, name) values ($1, '   ')`, [trip], /check constraint/);
   ok('one "me" per group, and names must not be blank');
-}
-
-{
-  const tries = [];
-  for (let i = 0; i < 4; i++) tries.push((await as(ANA, `select evenly.use_ai('scan', 3) as ok`))[0].ok);
-  assert.deepEqual(tries, [true, true, true, false]);
-  assert.equal((await as(BEN, `select evenly.use_ai('scan', 3) as ok`))[0].ok, true);
-  await fails(ANA, `select * from evenly.ai_usage`, [], /permission denied/);
-  ok('AI quota: allows the daily limit per user, then says no; the counts are private');
 }
 
 {

@@ -23,8 +23,9 @@ only on drinks, service charge on everything. Copy each amount into Google Pay y
 | `web/lib/split.ts` | The split maths: exact fractions of paise, largest-remainder rounding, so shares always add up to the bill. Runs in the browser. |
 | `supabase/` | Email/password auth and Postgres with row-level security. Evenly's tables (groups, people, splits) and functions live in their own `evenly` schema, since the project is shared with other apps. |
 
-The AI routes only serve signed-in users, with a per-account daily limit kept in the database
-(`AI_SCANS_PER_DAY`, `AI_ASSIGNS_PER_DAY`). Photos are shrunk to 2000 px in the browser before upload.
+The AI routes only serve signed-in users, with hourly limits kept in the server's memory: per
+account (`AI_SCANS_PER_HOUR`, `AI_ASSIGNS_PER_HOUR`) and for everyone together
+(`AI_SCANS_TOTAL_PER_HOUR`, `AI_ASSIGNS_TOTAL_PER_HOUR`). They reset when the server restarts. Photos are shrunk to 2000 px in the browser before upload.
 
 ## Run it locally
 
@@ -74,7 +75,7 @@ npm run lint
 2. **Render**: Dashboard > New > Blueprint, pick this repo. `render.yaml` creates one free web
    service (`web/`, Node 22, Singapore). Fill in the four secret values it asks for:
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the hosted ones),
-   `GEMINI_API_KEY`, `GROQ_API_KEY`. Optional: `AI_SCANS_PER_DAY`, `AI_ASSIGNS_PER_DAY`.
+   `GEMINI_API_KEY`, `GROQ_API_KEY`. Optional: the hourly limits (`AI_SCANS_PER_HOUR` and friends, see `.env.example`).
 3. **Back in Supabase**, Authentication > URL Configuration: set the Site URL to the Render address
    (`https://evenly-d0nl.onrender.com`). Emails carry codes rather than links, so nothing else
    depends on it.
