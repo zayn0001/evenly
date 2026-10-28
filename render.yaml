@@ -1,0 +1,24 @@
+# Render Blueprint: the website as one free web service (Dashboard > New > Blueprint).
+# The database and auth are the hosted Supabase project, so there's nothing else to run.
+services:
+  - type: web
+    name: evenly
+    runtime: node
+    plan: free
+    region: singapore # next to the Supabase project (ap-southeast-1)
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /sign-in
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # NEXT_PUBLIC_* are baked into the site at build time: redeploy after changing them.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

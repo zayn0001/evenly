@@ -1,0 +1,9 @@
+# Secrets: the root .env (template: .env.example), and the old stack's settings
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+supabase/.temp/
+*.zip
+supabase/.branches/
