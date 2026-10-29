@@ -189,7 +189,7 @@ Rules:
 - When the speaker gives an item's split as proportions rather than amounts ("2 to 1", "60/40", "70 percent", "twice as much as", "a third each", "split it 3:2"), give the proportions as units (60/40 -> 60 and 40; "twice as much as Ben" -> 2 for them, 1 for Ben) and list that item id in "ratio". Items given as amounts or shared equally are not listed.
 - If people shared an item without a count, give each units 1 (equal weights).
 - Only use item ids and person ids from the input. Never invent ids.
-- Add a flag for: uncertain name matches (e.g. "heard 'Shruti', matched to Sruthi"), items nobody mentioned, quantities that don't add up to the item qty, anything ambiguous.
+- Add a flag for: uncertain name matches (e.g. "heard 'Shruti', matched to Sruthi"), items nobody mentioned, anything ambiguous. Never flag units that don't add up to the item qty: the app checks counts itself, and an item shared without a count rightly has units 1 per person.
 - Leave unmentioned items out of assignments (and flag them).`;
 
 export async function assignFromTranscript(transcript: string, receipt: Receipt, people: Person[], meId: string | null) {
