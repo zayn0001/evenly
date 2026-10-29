@@ -15,7 +15,6 @@ const BILL: Receipt = {
     { id: 'i4', name: 'Tandoori Roti', qty: 1, unit_price: 45, total: 45, tax_class: 'food' },
     { id: 'i5', name: 'Kingfisher Beer', qty: 2, unit_price: 250, total: 500, tax_class: 'alcohol' },
   ],
-  subtotal: 1735,
   charges: [{ name: 'Service Charge 5%', amount: 86.75, applies_to: 'all' }],
   taxes: [
     { name: 'CGST 2.5%', amount: 30.88, applies_to: 'food' },
@@ -67,13 +66,13 @@ test('VAT only lands on the people who drank', () => {
 });
 
 test('an odd amount split three ways loses no paisa', () => {
-  const bill: Receipt = { ...BILL, items: [{ id: 'x', name: 'Thali', qty: 1, unit_price: null, total: 100, tax_class: 'food' }], charges: [], taxes: [], round_off: 0, subtotal: null, grand_total: 100 };
+  const bill: Receipt = { ...BILL, items: [{ id: 'x', name: 'Thali', qty: 1, unit_price: null, total: 100, tax_class: 'food' }], charges: [], taxes: [], round_off: 0, grand_total: 100 };
   const r = splitBill(bill, PEOPLE, { x: { me: 1, s: 1, j: 1 } });
   assert.deepEqual(r.people.map((p) => p.total).sort(), [33.33, 33.33, 33.34]);
 });
 
 test('thirds from "split equally" on a qty-2 item count as the whole item (no warning)', () => {
-  const bill: Receipt = { ...BILL, items: [{ id: 'x', name: 'Pizza', qty: 2, unit_price: null, total: 600, tax_class: 'food' }], charges: [], taxes: [], round_off: 0, subtotal: null, grand_total: 600 };
+  const bill: Receipt = { ...BILL, items: [{ id: 'x', name: 'Pizza', qty: 2, unit_price: null, total: 600, tax_class: 'food' }], charges: [], taxes: [], round_off: 0, grand_total: 600 };
   const r = splitBill(bill, PEOPLE, { x: { me: 2 / 3, s: 2 / 3, j: 2 / 3 } });
   assert.deepEqual(r.warnings, []);
   assert.equal(total(r), 600);
@@ -122,6 +121,17 @@ test('reconcile flags a misread total', () => {
   assert.ok(reconcile({ ...BILL, grand_total: 2500 }).some((i) => i.includes('grand total')));
 });
 
+test('a typed-in bill has to hit its total exactly', () => {
+  const off = { ...BILL, round_off: 0, grand_total: BILL.grand_total + 0.51 + 0.5 };
+  assert.deepEqual(reconcile(off), []);
+  assert.equal(reconcile(off, 0).length, 1);
+  assert.deepEqual(reconcile(BILL, 0), []);
+});
+
+test('a scanned bill with a printed round-off has to hit its total exactly', () => {
+  assert.equal(reconcile({ ...BILL, grand_total: BILL.grand_total + 0.05 }).length, 1);
+});
+
 test('a total rounded without a round-off line gets one, so the split matches the printed total', () => {
   // A real bill: lines add up to 715.02, "Net Amount: 715.00", no round-off printed.
   const bill: Receipt = {
@@ -138,7 +148,6 @@ test('a total rounded without a round-off line gets one, so the split matches th
       { name: 'SGST 2.5%', amount: 17.03, applies_to: 'food' },
     ],
     round_off: 0,
-    subtotal: null,
     grand_total: 715,
   };
   const fixed = withImpliedRoundOff(bill);
@@ -160,7 +169,6 @@ test('an item switched to a ratio splits by proportion, whatever the quantity', 
     charges: [],
     taxes: [],
     round_off: 0,
-    subtotal: null,
     grand_total: 300,
   };
   const r = splitBill(bill, PEOPLE.slice(0, 2), { a: { me: 2, s: 1 } });

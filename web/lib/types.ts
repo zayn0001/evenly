@@ -29,7 +29,6 @@ export type Receipt = {
   charges: Adjustment[];
   taxes: Adjustment[];
   round_off: number;
-  subtotal: number | null;
   grand_total: number;
 };
 

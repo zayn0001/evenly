@@ -11,7 +11,7 @@ import { assign, scanBill, shrinkImage, toDataUrl } from '@/lib/api';
 import { counted, itemStatus, shareEqually, simplestRatio, type ItemStatus } from '@/lib/assign';
 import { getGroup, getSplit, saveSplit, type Member } from '@/lib/db';
 import { fmtUnits, plainAmount, rupees } from '@/lib/format';
-import { reconcile, withImpliedRoundOff } from '@/lib/reconcile';
+import { reconcile, TOLERANCE, withImpliedRoundOff } from '@/lib/reconcile';
 import { SplitError, splitBill } from '@/lib/split';
 import type { Assignments, Person, Receipt, SplitResult } from '@/lib/types';
 
@@ -169,7 +169,9 @@ function BillStep({
     }
   };
 
-  const issues = receipt ? (receipt.grand_total ? reconcile(receipt) : []) : scanIssues;
+  // Scans get slack for a total rounded without a printed round-off; anything else has to add up exactly.
+  const tolerance = photo && !receipt?.round_off ? TOLERANCE : 0;
+  const issues = receipt ? (receipt.grand_total ? reconcile(receipt, tolerance) : []) : scanIssues;
   const blank = receipt?.items.filter((i) => !i.name.trim()) ?? [];
   // The split is only as right as the bill: no going on until the lines add up to the printed totals.
   const mustFix = issues.length > 0;
@@ -213,7 +215,15 @@ function BillStep({
             <button className="btn primary" type="button" disabled={busy} onClick={() => fileInput.current?.click()}>
               {photo ? 'Try another photo' : 'Photograph or upload the bill'}
             </button>
-            <button className="btn" type="button" disabled={busy} onClick={() => onReceipt(emptyReceipt())}>
+            <button
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                onPhoto(null);
+                onReceipt(emptyReceipt());
+              }}
+            >
               Type it in instead
             </button>
           </>
@@ -229,7 +239,7 @@ function BillStep({
               />
             )}
             <Notice lines={issues.map((i) => `Doesn't add up: ${i}`)} />
-            <BillEditor receipt={receipt} onChange={onReceipt} />
+            <BillEditor receipt={receipt} onChange={onReceipt} tolerance={tolerance} />
             <Rule />
             <button
               className="link"

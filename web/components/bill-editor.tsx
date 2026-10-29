@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 
+import { rupees } from '@/lib/format';
 import type { Adjustment, Item, Receipt } from '@/lib/types';
 
 let next = 0;
@@ -13,7 +14,6 @@ export const emptyReceipt = (): Receipt => ({
   charges: [],
   taxes: [],
   round_off: 0,
-  subtotal: null,
   grand_total: 0,
 });
 
@@ -75,12 +75,15 @@ function Num({
 }
 
 /** Every line of the bill, editable: fix a misread, add what's missing, delete what's wrong. */
-export function BillEditor({ receipt, onChange }: { receipt: Receipt; onChange: (r: Receipt) => void }) {
+export function BillEditor({ receipt, onChange, tolerance }: { receipt: Receipt; onChange: (r: Receipt) => void; tolerance: number }) {
   const setItem = (id: string, patch: Partial<Item>) =>
     onChange({ ...receipt, items: receipt.items.map((i) => (i.id === id ? { ...i, ...patch, unit_price: null } : i)) });
   // Charges and taxes are shared the same way, so they're edited as one list.
   const extras = [...receipt.charges.map((a) => ({ ...a, kind: 'charges' as const })), ...receipt.taxes.map((a) => ({ ...a, kind: 'taxes' as const }))];
   const plain = ({ name, amount, applies_to }: Adjustment): Adjustment => ({ name, amount, applies_to });
+  // Live sum of the lines, so a mismatch shows exactly how far off the printed total it is.
+  const computed = Math.round((receipt.items.reduce((t, i) => t + i.total, 0) + extras.reduce((t, a) => t + a.amount, 0) + receipt.round_off) * 100) / 100;
+  const gap = Math.round((receipt.grand_total - computed) * 100) / 100;
   const setExtras = (list: (Adjustment & { kind: 'charges' | 'taxes' })[]) =>
     onChange({
       ...receipt,
@@ -196,16 +199,16 @@ export function BillEditor({ receipt, onChange }: { receipt: Receipt; onChange: 
         <span className="muted">Round off</span>
         <Num signed label="Round off" value={receipt.round_off} onChange={(round_off) => onChange({ ...receipt, round_off })} />
       </div>
-      {receipt.subtotal != null && (
-        <div className="row between">
-          <span className="muted">Subtotal on the bill</span>
-          <Num label="Subtotal" value={receipt.subtotal} onChange={(subtotal) => onChange({ ...receipt, subtotal })} />
-        </div>
-      )}
       <div className="row between">
         <strong>Grand total on the bill</strong>
         <Num label="Grand total" value={receipt.grand_total} onChange={(grand_total) => onChange({ ...receipt, grand_total })} />
       </div>
+      {receipt.grand_total > 0 && Math.abs(gap) > tolerance && (
+        <div className="row between" role="status" style={{ color: 'var(--red)' }}>
+          <span>Lines add up to {rupees(computed)}</span>
+          <span>{gap > 0 ? `${rupees(gap)} short` : `${rupees(-gap)} over`}</span>
+        </div>
+      )}
     </div>
   );
 }

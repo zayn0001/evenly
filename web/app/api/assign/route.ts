@@ -58,7 +58,6 @@ function parseContext(raw: unknown) {
     charges: [],
     taxes: [],
     round_off: 0,
-    subtotal: null,
     grand_total: 0,
   } satisfies Receipt;
   return {

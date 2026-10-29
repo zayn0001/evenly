@@ -94,7 +94,6 @@ export function parseReceipt(data: unknown): Receipt {
     charges: adjustments(d.charges),
     taxes: adjustments(d.taxes),
     round_off: num(d.round_off, 0),
-    subtotal: d.subtotal == null ? null : num(d.subtotal, 0),
     grand_total: num(d.grand_total),
   };
 }
@@ -104,7 +103,6 @@ const RECEIPT_PROMPT = `You extract Indian restaurant bills into JSON. Return ON
 {
   "restaurant": string|null,
   "items": [{"id": "i1", "name": str, "qty": number, "unit_price": number|null, "total": number, "tax_class": "food"|"alcohol"|"other"}],
-  "subtotal": number|null,
   "charges": [{"name": str, "amount": number, "applies_to": "all"|"food"|"alcohol"}],
   "taxes": [{"name": str, "amount": number, "applies_to": "all"|"food"|"alcohol"}],
   "round_off": number,
@@ -136,7 +134,7 @@ const extractWith: Extract = async (provider, model, dataUrl) =>
 export const MAX_READS = 3;
 
 /**
- * Reads the bill until its numbers add up (items vs subtotal vs grand total), at most MAX_READS
+ * Reads the bill until its numbers add up (items + charges + taxes vs grand total), at most MAX_READS
  * times, moving through the model chain in order (and around again if it's shorter). If no read
  * adds up, the last one is returned with `checksOut: false` for the person to correct. A failed
  * call (rate limit, bad JSON, timeout) counts as a try.
