@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Evenly: a black equals sign on white. -->
-  <rect width="512" height="512" rx="112" fill="#ffffff"/>
-  <rect x="136" y="186" width="240" height="44" rx="10" fill="#000000"/>
-  <rect x="136" y="282" width="240" height="44" rx="10" fill="#000000"/>
+  <!-- Evenly: a black equals sign on white; white on black in dark mode. -->
+  <style>
+    .bg { fill: #ffffff; } .eq { fill: #000000; }
+    @media (prefers-color-scheme: dark) { .bg { fill: #000000; } .eq { fill: #ffffff; } }
+  </style>
+  <rect class="bg" width="512" height="512" rx="112"/>
+  <rect class="eq" x="136" y="186" width="240" height="44" rx="10"/>
+  <rect class="eq" x="136" y="282" width="240" height="44" rx="10"/>
 </svg>
