@@ -9,6 +9,7 @@ import { Line, Notice, Paper, Rule, useToast } from '@/components/paper';
 import { SplitLines } from '@/components/split-editor';
 import { deleteSplit, getSplit, type Split } from '@/lib/db';
 import { rupees, shortDate } from '@/lib/format';
+import { shareByItem, shareByPerson } from '@/lib/share';
 
 export default function SplitPage() {
   return (
@@ -40,12 +41,8 @@ function SplitView() {
   }
 
   const { receipt } = split;
-  const summary = [
-    `${split.title}: ${rupees(split.total)}`,
-    ...split.result.people.map((p) => `${p.name}: ${rupees(p.total)}`),
-  ].join('\n');
 
-  const share = async () => {
+  const share = async (summary: string) => {
     try {
       if (navigator.share) await navigator.share({ text: summary });
       else {
@@ -99,9 +96,14 @@ function SplitView() {
         </button>
       </Paper>
       <div className="actions">
-        <button className="btn primary" type="button" onClick={share}>
-          Share the amounts
-        </button>
+        <div className="row">
+          <button className="btn primary" type="button" onClick={() => share(shareByPerson(split))}>
+            Share by person
+          </button>
+          <button className="btn primary" type="button" onClick={() => share(shareByItem(split))}>
+            Share by item
+          </button>
+        </div>
         <div className="row">
           <Link className="btn" href={`/groups/${groupId}/split/${split.id}`}>
             Edit
